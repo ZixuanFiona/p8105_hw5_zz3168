@@ -27,9 +27,75 @@ scale_fill_discrete = scale_fill_viridis_d
 ```
 
 # Problem 1
-```{r}
 
+```{r}
+homicide_df = 
+  read_csv("data/homicide-data.csv", na = c("", "NA", "Unknown")) %>%
+  mutate(
+    city_state = str_c(city, state, sep = ", "),
+    resolution = case_when(
+      disposition == "Closed without arrest" ~ "unsolved",
+      disposition == "Open/No arrest"        ~ "unsolved",
+      disposition == "Closed by arrest"      ~ "solved"
+    )
+  ) %>% 
+  filter(city_state != "Tulsa, AL") 
 ```
+
+The resulting dataframe has `r nrow(homicide_df)` entries, on variables that include the victim name, race, age, and sex; the date the homicide was reported; and the location of the homicide. In cleaning, I created a `city_state` variable that includes both city and state, and a `resolution` variable to indicate whether the case was closed by arrest. I also excluded one entry in Tulsa, AL, which is not a major US city and is most likely a data entry error. 
+
+In the next code chunk, I group within cities and summarize to produce the total number of homicides and the number that are solved. 
+
+```{r}
+city_homicide_df = 
+  homicide_df %>% 
+  select(city_state, disposition, resolution) %>% 
+  group_by(city_state) %>% 
+  summarize(
+    hom_total = n(),
+    hom_unsolved = sum(resolution == "unsolved"))
+```
+
+Focusing only on Baltimore, MD, I can use the `prop.test` and `broom::tidy` functions to obtain an estimate and CI of the proportion of unsolved homicides in that city. The table below shows those values.
+
+```{r}
+bmore_test = 
+  prop.test(
+    x = filter(city_homicide_df, city_state == "Baltimore, MD") %>% pull(hom_unsolved),
+    n = filter(city_homicide_df, city_state == "Baltimore, MD") %>% pull(hom_total)) 
+
+broom::tidy(bmore_test) %>% 
+  knitr::kable(digits = 3)
+```
+
+Building on this code, I can use functions in the `purrr` package to obtain estimates and CIs for the proportion of unsolved homicides in each city in my dataset. The code below implements this analysis. 
+
+```{r}
+test_results = 
+  city_homicide_df %>% 
+  mutate(
+    prop_tests = map2(hom_unsolved, hom_total, \(x, y) prop.test(x = x, n = y)),
+    tidy_tests = map(prop_tests, broom::tidy)) %>% 
+  select(-prop_tests) %>% 
+  unnest(tidy_tests) %>% 
+  select(city_state, estimate, conf.low, conf.high) %>% 
+  mutate(city_state = fct_reorder(city_state, estimate))
+```
+
+Finally, I make a plot showing the estimate (and CI) of the proportion of unsolved homicides in each city.
+
+```{r}
+test_results %>% 
+  mutate(city_state = fct_reorder(city_state, estimate)) %>% 
+  ggplot(aes(x = city_state, y = estimate)) + 
+  geom_point() + 
+  geom_errorbar(
+    aes(ymin = conf.low, ymax = conf.high)) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+This figure suggests a very wide range in the rate at which homicides are solved -- Chicago is noticeably high and, given the narrowness of the CI, likely is the location of many homicides. 
+
 
 # Problem 2
 ### Tidy the import data
@@ -76,3 +142,107 @@ full_data |>
 The ggplot shows that from the 1 week to the 8 week, we can observe from the icon that the data of the experimental group has been increasing and is higher than that of the control group. The data of the control group does not seem to change according to the passage of time, so we It can be concluded that the values of the experimental group are generally higher than those of the control group.
 
 # Problem 3
+
+```{r}
+set.seed(12345)
+
+t_test = function(mu, n = 30, sigma = 5) {
+   sim_data = 
+     tibble(
+    x = rnorm(n = 30, mean = mu, sd = sigma),
+  )
+   sim_data |> 
+    t.test(conf.level = 0.95)|> 
+    broom::tidy() |> 
+    select(estimate, p.value)
+}
+
+  
+  
+```
+
+```{r}
+output = vector("list", 5000)
+
+for (i in 1:5000) {
+  output[[i]] = t_test(mu = 0)
+}
+
+sim_results = bind_rows(output)
+
+
+```
+
+
+
+```{r}
+sim_result2 = 
+  expand_grid(
+    mean = c(0, 1, 2, 3, 4, 5, 6),
+    iter = 1:5000
+  ) |> 
+  mutate(
+    sim_test = map(mean, t_test)) |>
+  unnest(sim_test)
+     
+```
+
+## plot
+```{r}
+sim_result2 |> 
+  group_by(mean) |> 
+  filter(
+    p.value < 0.05) |> 
+  summarise(num_reject = n()) |> 
+  mutate(
+    prop_reject = num_reject/5000
+  ) |> 
+  ggplot(aes(x = mean , y = prop_reject)) +
+  geom_point()+
+  geom_line()
+   
+
+    
+
+```
+
+
+```{r}
+average_p1 =
+  sim_result2 |> 
+  group_by(mean) |> 
+  summarize(
+    avg_mu = mean(estimate)) |> 
+  ggplot(
+    aes(x = mean, y = avg_mu)) +
+  geom_point() + 
+  geom_line() +
+  labs(
+    title = "Average estimate of mu for all samples")
+  
+  
+```
+
+## Plot for second average
+```{r}
+average_p2 = 
+  sim_result2 |> 
+    group_by(mean) |> 
+  filter(
+    p.value < 0.05) |> 
+  summarize(
+    avg_mu = mean(estimate)) |> 
+  ggplot(
+    aes(x = mean, y = avg_mu)) +
+  geom_point() + 
+  geom_line() +
+  labs(title = "Samples for null rejected ")
+
+
+average_p1 + average_p2
+
+```
+
+The first polt is show that average estimate of μ̂ on the y axis and the true value of μ on the x axis., the second plot show that the  average estimate of μ̂ only in samples for which the null was rejected on the y axis. From the plots, we can see that the when the true mean values is smaller than < 4, the sampel means is large  to reject the null hypothesis. when the effect size at mean = 4 , the samples is rejected the null hypothesis. 
+ 
+
