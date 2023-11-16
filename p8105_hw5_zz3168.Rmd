@@ -243,6 +243,6 @@ average_p1 + average_p2
 
 ```
 
-The first polt is show that average estimate of μ̂ on the y axis and the true value of μ on the x axis., the second plot show that the  average estimate of μ̂ only in samples for which the null was rejected on the y axis. From the plots, we can see that the when the true mean values is smaller than < 4, the sampel means is large  to reject the null hypothesis. when the effect size at mean = 4 , the samples is rejected the null hypothesis. 
+The first polt is show that average estimate of μ̂ on the y axis and the true value of μ on the x axis., the second plot show that the  average estimate of μ̂ only in samples for which the null was rejected on the y axis. From the plots, we can see that the when the true mean values is smaller than < 4, the sampel means is large  to reject the null hypothesis. when the effect size at mean = 4 , the samples is rejected the null hypothesis. And most of the average of the sample are really closely to the true mean. 
  
 
